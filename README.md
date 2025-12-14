@@ -1,94 +1,63 @@
 # Point Kinetics PINN
 
-A Physics-Informed Neural Network (PINN) for solving the point kinetics equations in nuclear reactor transient analysis.
+Physics-Informed Neural Network for solving the point kinetics equations in nuclear reactor dynamics.
 
-## Overview
-
-This project implements the 6-group point kinetics equations that describe neutron population dynamics in nuclear reactors:
+## Equations
 
 ```
 dn/dt = [(ρ - β) / Λ] × n + Σ λᵢCᵢ
 dCᵢ/dt = (βᵢ / Λ) × n - λᵢCᵢ  (i = 1..6)
 ```
 
-Where:
-- `n` = neutron density
-- `Cᵢ` = delayed neutron precursor concentration (6 groups)
-- `ρ` = reactivity
-- `β` = total delayed neutron fraction
-- `Λ` = prompt neutron generation time
-
 ## Project Structure
 
 ```
-├── point_kinetics_scipy.py   # SciPy numerical benchmark
-├── requirements.txt          # Python dependencies
-├── LICENSE                   # MIT License
-└── README.md                 # This file
+├── point_kinetics_pinn.py    # Standard PINN (PyTorch)
+├── point_kinetics_scipy.py   # SciPy benchmark solver
+├── model_utils.py            # Save/load utilities
+├── requirements.txt
+└── README.md
 ```
 
-## Features
-
-- **SciPy Benchmark**: High-accuracy numerical solution using the Radau solver
-- **6-Group Delayed Neutrons**: Full delayed neutron precursor dynamics (U-235)
-- **Validation**: Residual analysis comparing numerical derivatives to ODE expectations
-- **Visualization**: Combined plots of solution and validation metrics
-
-## Getting Started
-
-### Prerequisites
-
-- Python 3.8+
-- NumPy, SciPy, Matplotlib
-
-### Installation
+## Installation
 
 ```bash
-git clone https://github.com/yourusername/point-kinetics-pinn.git
-cd point-kinetics-pinn
 pip install -r requirements.txt
 ```
 
-### Run the Benchmark
+## Usage
 
+**Train a new model:**
+```bash
+python point_kinetics_pinn.py --epochs 5000 --save model.pt
+```
+
+**Load and visualize:**
+```bash
+python point_kinetics_pinn.py --load model.pt
+```
+
+**Run SciPy benchmark:**
 ```bash
 python point_kinetics_scipy.py
 ```
 
-This will:
-1. Solve the point kinetics equations for a step reactivity insertion
-2. Validate the solution using residual analysis
-3. Generate a combined visualization plot
+## Parameters
 
-## Physics Background
-
-The point kinetics equations model the time-dependent behavior of neutron population in a nuclear reactor. Key physical phenomena captured:
-
-- **Prompt Jump**: Instantaneous response to reactivity changes (~µs timescale)
-- **Delayed Neutron Rise**: Slower exponential growth governed by precursor decay (~s timescale)
-- **Multi-group Dynamics**: Six delayed neutron precursor groups with different decay constants
-
-### Parameters (U-235, Thermal Spectrum)
-
-| Parameter | Value | Description |
-|-----------|-------|-------------|
-| β (total) | 0.0065 | Total delayed neutron fraction |
-| Λ | 2×10⁻⁵ s | Prompt neutron generation time |
-| ρ | 0.003 | Step reactivity insertion (~0.5β) |
-
-## Roadmap
-
-- [x] SciPy numerical benchmark
-- [x] Validation and residual analysis
-- [ ] PINN implementation
-- [ ] Benchmark comparison (PINN vs SciPy)
-- [ ] Interactive visualization
+| Argument | Default | Description |
+|----------|---------|-------------|
+| `--epochs` | 5000 | Training epochs |
+| `--lr` | 0.001 | Learning rate |
+| `--layers` | 4 | Hidden layers |
+| `--neurons` | 64 | Neurons per layer |
+| `--lambda-ic` | 10 | IC loss weight |
 
 ## References
 
 - Keepin, G.R. "Physics of Nuclear Kinetics" (1965)
 - Raissi, M. et al. "Physics-informed neural networks" (2019)
+- Schiassi, E. et al. "Physics-informed neural networks for the point kinetics equations" (2022)
 
 ## License
 
-MIT License - see [LICENSE](LICENSE) for details.
+MIT
