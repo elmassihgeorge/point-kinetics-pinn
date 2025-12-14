@@ -1,6 +1,13 @@
 # Point Kinetics PINN
 
-Physics-Informed Neural Network for solving the point kinetics equations in nuclear reactor dynamics.
+Physics-Informed Neural Networks for solving the point kinetics equations in nuclear reactor dynamics.
+
+## Methods
+
+| Method | IC Handling | Training | Accuracy |
+|--------|-------------|----------|----------|
+| Standard PINN | Soft (penalty) | Gradient descent | ~70-90% error |
+| **X-TFC** | **Hard (exact)** | **Least-squares** | **0.06% error** |
 
 ## Equations
 
@@ -13,44 +20,29 @@ dCᵢ/dt = (βᵢ / Λ) × n - λᵢCᵢ  (i = 1..6)
 
 ```
 ├── point_kinetics_pinn.py    # Standard PINN (PyTorch)
-├── point_kinetics_scipy.py   # SciPy benchmark solver
+├── point_kinetics_xtfc.py    # X-TFC (NumPy)
+├── point_kinetics_scipy.py   # SciPy benchmark
+├── compare_methods.py        # Comparison visualization
 ├── model_utils.py            # Save/load utilities
-├── requirements.txt
-└── README.md
-```
-
-## Installation
-
-```bash
-pip install -r requirements.txt
+└── requirements.txt
 ```
 
 ## Usage
 
-**Train a new model:**
+**Standard PINN:**
 ```bash
 python point_kinetics_pinn.py --epochs 5000 --save model.pt
 ```
 
-**Load and visualize:**
+**X-TFC (recommended):**
 ```bash
-python point_kinetics_pinn.py --load model.pt
+python point_kinetics_xtfc.py --neurons 100
 ```
 
-**Run SciPy benchmark:**
+**Compare methods:**
 ```bash
-python point_kinetics_scipy.py
+python compare_methods.py
 ```
-
-## Parameters
-
-| Argument | Default | Description |
-|----------|---------|-------------|
-| `--epochs` | 5000 | Training epochs |
-| `--lr` | 0.001 | Learning rate |
-| `--layers` | 4 | Hidden layers |
-| `--neurons` | 64 | Neurons per layer |
-| `--lambda-ic` | 10 | IC loss weight |
 
 ## References
 
