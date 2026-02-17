@@ -30,10 +30,10 @@ from datetime import datetime
 
 # Nuclear Parameters (U-235, thermal spectrum)
 
-# Delayed neutron fractions by precursor group
-BETA = np.array([0.000215, 0.001424, 0.001274, 0.002568, 0.000748, 0.000273])
+# Delayed neutron fractions by precursor group (Keepin, 1957)
+BETA = np.array([0.000221, 0.001467, 0.001313, 0.002647, 0.000771, 0.000281])
 
-# Precursor decay constants (s^-1)
+# Precursor decay constants (s^-1) (Keepin, 1957)
 LAMBDA = np.array([0.0124, 0.0305, 0.111, 0.301, 1.14, 3.01])
 
 # Total delayed neutron fraction
@@ -214,7 +214,7 @@ def plot_results(solution, stats, save_path=None):
 
     plt.tight_layout()
     if save_path:
-        plt.savefig(save_path, dpi=150)
+        plt.savefig(save_path, dpi=300, bbox_inches='tight')
     plt.show()
 
 

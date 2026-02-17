@@ -19,8 +19,8 @@ import matplotlib.pyplot as plt
 from datetime import datetime
 import argparse
 
-# Nuclear Parameters (U-235, thermal spectrum)
-BETA = np.array([0.000215, 0.001424, 0.001274, 0.002568, 0.000748, 0.000273])
+# Nuclear Parameters: Keepin (1957) 6-group for U-235 thermal fission
+BETA = np.array([0.000221, 0.001467, 0.001313, 0.002647, 0.000771, 0.000281])
 LAMBDA = np.array([0.0124, 0.0305, 0.111, 0.301, 1.14, 3.01])
 BETA_TOTAL = np.sum(BETA)
 LAMBDA_GEN = 2e-5  # Prompt neutron generation time (s)
@@ -197,21 +197,20 @@ def plot_solution(model, t_max=10.0, save_path=None):
     """Plot X-TFC solution."""
     t = np.linspace(0, t_max, 1000)
     pred = model.predict(t)
-    
-    fig, ax = plt.subplots(figsize=(12, 5))
-    
-    colors = plt.cm.viridis(np.linspace(0, 1, 6))
+
+    fig, ax = plt.subplots(figsize=(10, 5))
+    colors = ['#1f77b4', '#ff7f0e', '#2ca02c', '#d62728', '#9467bd', '#8c564b']
     for i in range(6):
         ax.plot(t, pred['C'][:, i], color=colors[i], lw=1.5, label=f'Group {i+1}')
-    ax.set_xlabel('Time (s)')
-    ax.set_ylabel('Precursor Concentration')
-    ax.set_title('X-TFC: Delayed Neutron Precursors')
-    ax.legend(loc='upper right', fontsize=8)
+    ax.set_xlabel('Time (s)', fontsize=12)
+    ax.set_ylabel('Precursor Concentration', fontsize=12)
+    ax.set_title('X-TFC: Delayed Neutron Precursors', fontsize=14)
+    ax.legend(loc='upper right', fontsize=10)
     ax.grid(True, alpha=0.3)
-    
+
     plt.tight_layout()
     if save_path:
-        plt.savefig(save_path, dpi=150)
+        plt.savefig(save_path, dpi=300, bbox_inches='tight')
     plt.show()
 
 

@@ -63,41 +63,25 @@ def compute_errors(pred, ref):
 
 def plot_solutions(t, scipy_ref, pinn_pred, xtfc_pred, save_path=None):
     """Plot 3 separate panels: SciPy, PINN, X-TFC."""
-    fig, axes = plt.subplots(1, 3, figsize=(15, 4))
-    
-    colors = plt.cm.viridis(np.linspace(0, 1, 6))
-    
-    # Panel 1: SciPy (reference)
-    ax = axes[0]
-    for i in range(6):
-        ax.plot(t, scipy_ref['C'][:, i], color=colors[i], lw=1.5, label=f'Group {i+1}')
-    ax.set_xlabel('Time (s)')
-    ax.set_ylabel('Precursor Concentration')
-    ax.set_title('SciPy (Reference)')
-    ax.grid(True, alpha=0.3)
-    ax.legend(fontsize=7, loc='upper left')
-    
-    # Panel 2: Standard PINN
-    ax = axes[1]
-    for i in range(6):
-        ax.plot(t, pinn_pred['C'][:, i], color=colors[i], lw=1.5)
-    ax.set_xlabel('Time (s)')
-    ax.set_ylabel('Precursor Concentration')
-    ax.set_title('Standard PINN')
-    ax.grid(True, alpha=0.3)
-    
-    # Panel 3: X-TFC
-    ax = axes[2]
-    for i in range(6):
-        ax.plot(t, xtfc_pred['C'][:, i], color=colors[i], lw=1.5)
-    ax.set_xlabel('Time (s)')
-    ax.set_ylabel('Precursor Concentration')
-    ax.set_title('X-TFC')
-    ax.grid(True, alpha=0.3)
-    
+    fig, axes = plt.subplots(1, 3, figsize=(15, 5))
+
+    colors = ['#1f77b4', '#ff7f0e', '#2ca02c', '#d62728', '#9467bd', '#8c564b']
+
+    for ax, data, title in zip(axes,
+                                [scipy_ref, pinn_pred, xtfc_pred],
+                                ['SciPy Radau (Reference)', 'Standard PINN', 'X-TFC']):
+        for i in range(6):
+            ax.plot(t, data['C'][:, i], color=colors[i], lw=1.5, label=f'Group {i+1}')
+        ax.set_xlabel('Time (s)', fontsize=11)
+        ax.set_ylabel('Precursor Concentration', fontsize=11)
+        ax.set_title(title, fontsize=13)
+        ax.grid(True, alpha=0.3)
+
+    axes[0].legend(fontsize=8, loc='upper left')
+
     plt.tight_layout()
     if save_path:
-        plt.savefig(save_path, dpi=150)
+        plt.savefig(save_path, dpi=300, bbox_inches='tight')
     plt.show()
 
 
@@ -111,9 +95,11 @@ def plot_error_comparison(pinn_errors, xtfc_errors, save_path=None):
     pinn_by_group = np.max(pinn_errors['rel_error'], axis=0)
     xtfc_by_group = np.max(xtfc_errors['rel_error'], axis=0)
     
-    bars1 = ax.bar(groups - width/2, pinn_by_group, width, label='Standard PINN', color='#d62728', alpha=0.8)
-    bars2 = ax.bar(groups + width/2, xtfc_by_group, width, label='X-TFC', color='#1f77b4', alpha=0.8)
-    
+    ax.bar(groups - width/2, pinn_by_group, width,
+           label='Standard PINN', color='#d62728', alpha=0.8)
+    ax.bar(groups + width/2, xtfc_by_group, width,
+           label='X-TFC', color='#1f77b4', alpha=0.8)
+
     ax.set_yscale('log')
     ax.set_xlabel('Precursor Group', fontsize=12)
     ax.set_ylabel('Max Relative Error (%)', fontsize=12)
@@ -121,10 +107,10 @@ def plot_error_comparison(pinn_errors, xtfc_errors, save_path=None):
     ax.set_xticks(groups)
     ax.legend(fontsize=11)
     ax.grid(True, alpha=0.3, axis='y')
-    
+
     plt.tight_layout()
     if save_path:
-        plt.savefig(save_path, dpi=150)
+        plt.savefig(save_path, dpi=300, bbox_inches='tight')
     plt.show()
 
 

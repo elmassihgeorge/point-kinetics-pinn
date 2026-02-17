@@ -24,7 +24,8 @@ import argparse
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
 # Nuclear Parameters (U-235, thermal spectrum)
-BETA = torch.tensor([0.000215, 0.001424, 0.001274, 0.002568, 0.000748, 0.000273],
+# Keepin (1957) 6-group parameters for U-235 thermal fission
+BETA = torch.tensor([0.000221, 0.001467, 0.001313, 0.002647, 0.000771, 0.000281],
                     dtype=torch.float32, device=device)
 LAMBDA = torch.tensor([0.0124, 0.0305, 0.111, 0.301, 1.14, 3.01],
                       dtype=torch.float32, device=device)
@@ -133,8 +134,8 @@ def train(model, epochs=5000, n_collocation=1000, t_max=10.0,
             history['loss_ic'].append(loss_ic.item())
             
             if verbose and epoch % 500 == 0:
-                print(f"Epoch {epoch:5d} | Loss: {loss.item():.2e} | "
-                      f"Physics: {loss_physics.item():.2e} | IC: {loss_ic.item():.2e}")
+                print(f"Epoch {epoch:5d} | L: {loss.item():.2e} | "
+                      f"L_phys: {loss_physics.item():.2e} | L_IC: {loss_ic.item():.2e}")
     
     return history
 
@@ -152,34 +153,25 @@ def predict(model, t):
 
 
 def plot_training(history, save_path=None):
-    """Plot training convergence (3 panels)."""
-    fig, axes = plt.subplots(1, 3, figsize=(15, 4))
+    """Plot training convergence: L_phys and L_IC on a single axis."""
+    fig, ax = plt.subplots(figsize=(8, 5))
     epochs = history['epoch']
-    
-    axes[0].semilogy(epochs, history['loss'], 'b-', lw=2)
-    axes[0].set_xlabel('Epoch')
-    axes[0].set_ylabel('Loss (log scale)')
-    axes[0].set_title('Total Loss')
-    axes[0].set_xlim(0, max(epochs))
-    axes[0].grid(True, alpha=0.3)
-    
-    axes[1].semilogy(epochs, history['loss_physics'], 'r-', lw=2)
-    axes[1].set_xlabel('Epoch')
-    axes[1].set_ylabel('Loss (log scale)')
-    axes[1].set_title('Physics Loss')
-    axes[1].set_xlim(0, max(epochs))
-    axes[1].grid(True, alpha=0.3)
-    
-    axes[2].semilogy(epochs, history['loss_ic'], 'g-', lw=2)
-    axes[2].set_xlabel('Epoch')
-    axes[2].set_ylabel('Loss (log scale)')
-    axes[2].set_title('IC Loss')
-    axes[2].set_xlim(0, max(epochs))
-    axes[2].grid(True, alpha=0.3)
-    
+
+    ax.semilogy(epochs, history['loss_physics'], '-', color='#1f77b4', lw=2,
+                label=r'$\mathcal{L}_{\mathrm{phys}}$')
+    ax.semilogy(epochs, history['loss_ic'], '-', color='#d62728', lw=2,
+                label=r'$\mathcal{L}_{\mathrm{IC}}$')
+
+    ax.set_xlabel('Epoch', fontsize=12)
+    ax.set_ylabel('Loss (log scale)', fontsize=12)
+    ax.set_title('PINN Training Loss', fontsize=14)
+    ax.set_xlim(0, max(epochs))
+    ax.legend(fontsize=12)
+    ax.grid(True, alpha=0.3)
+
     plt.tight_layout()
     if save_path:
-        plt.savefig(save_path, dpi=150)
+        plt.savefig(save_path, dpi=300, bbox_inches='tight')
     plt.show()
 
 
@@ -187,20 +179,20 @@ def plot_solution(model, t_max=10.0, save_path=None):
     """Plot precursor concentrations."""
     t = np.linspace(0, t_max, 1000)
     pred = predict(model, t)
-    
-    fig, ax = plt.subplots(figsize=(12, 5))
-    colors = plt.cm.viridis(np.linspace(0, 1, 6))
+
+    fig, ax = plt.subplots(figsize=(10, 5))
+    colors = ['#1f77b4', '#ff7f0e', '#2ca02c', '#d62728', '#9467bd', '#8c564b']
     for i in range(6):
         ax.plot(t, pred['C'][:, i], color=colors[i], lw=1.5, label=f'Group {i+1}')
-    ax.set_xlabel('Time (s)')
-    ax.set_ylabel('Precursor Concentration')
-    ax.set_title('Standard PINN: Delayed Neutron Precursors')
-    ax.legend(loc='upper right', fontsize=8)
+    ax.set_xlabel('Time (s)', fontsize=12)
+    ax.set_ylabel('Precursor Concentration', fontsize=12)
+    ax.set_title('Standard PINN: Delayed Neutron Precursors', fontsize=14)
+    ax.legend(loc='upper right', fontsize=10)
     ax.grid(True, alpha=0.3)
-    
+
     plt.tight_layout()
     if save_path:
-        plt.savefig(save_path, dpi=150)
+        plt.savefig(save_path, dpi=300, bbox_inches='tight')
     plt.show()
 
 
