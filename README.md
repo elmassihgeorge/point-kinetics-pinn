@@ -53,22 +53,21 @@ python generate_poster_graphics.py
 
 ## Graphics
 
-All figures are saved to `graphics/` at 300 DPI. Key plots include:
+All figures are saved to `graphics/` at 300 DPI:
 
 | File | Description |
 |------|-------------|
 | `neutron_comparison.png` | Overlay of all three methods |
-| `precursor_comparison.png` | Side-by-side precursor dynamics |
-| `error_by_group.png` | Max relative error per precursor group |
+| `precursor_comparison.png` | SciPy vs PINN precursor vertical stack |
+| `xtfc_precursor_comparison.png` | SciPy vs X-TFC precursor vertical stack |
 | `error_over_time.png` | Error evolution over simulation |
 | `neutron_error.png` | Absolute error in neutron density |
-| `prompt_jump.png` | Early-time prompt jump + delayed rise |
-| `phase_portrait.png` | n vs ΣCᵢ trajectory with time colormap |
-| `ic_satisfaction.png` | Soft vs hard IC enforcement |
-| `neuron_sensitivity.png` | X-TFC accuracy vs ELM neuron count |
-| `ramp_vs_step.png` | Step vs ramp reactivity response |
+| `pinn_training.png` | PINN training loss convergence |
+| `pinn_solution.png` | Standard PINN neutron density + precursors |
+| `xtfc_solution.png` | X-TFC neutron density + precursors |
+| `scipy_benchmark.png` | SciPy reference solution + residuals |
 | `precursor_panels.png` | Individual precursor group dynamics |
-| `reactivity_profile.png` | Step reactivity diagram |
+| `ramp_vs_step.png` | Step vs ramp reactivity response |
 | `method_summary_table.png` | Visual comparison table |
 
 ## References
