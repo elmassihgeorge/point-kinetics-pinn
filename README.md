@@ -2,7 +2,7 @@
 
 Physics-Informed Neural Networks for solving the point kinetics equations in nuclear reactor dynamics. Compares a standard PINN (soft IC constraints, gradient descent) against X-TFC (hard IC constraints, least-squares) with a SciPy Radau benchmark.
 
-![SIAM Poster](poster.png)
+![SIAM Poster](poster.jpg)
 
 ## Equations
 
