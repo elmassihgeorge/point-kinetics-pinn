@@ -1,235 +1,191 @@
 """
 X-TFC: Extreme Theory of Functional Connections for Point Kinetics
 
-Uses hard constraints on initial conditions via TFC and
-Extreme Learning Machines (ELM) with least-squares training.
+Hard-constrains initial conditions via TFC and trains a single-layer
+Extreme Learning Machine (ELM) with least-squares — no gradient descent.
 
-Key features:
-    - ICs satisfied exactly (not via penalty)
-    - Single-layer neural network with random hidden weights
-    - Training via least-squares (no gradient descent)
+Key advantages over standard PINNs:
+    - ICs satisfied *exactly* (not via penalty term)
+    - Training via linear least-squares (fast, deterministic)
+    - Orders-of-magnitude better accuracy
 
 Reference:
-    Schiassi et al. "Physics-informed neural networks for the 
+    Schiassi et al., "Physics-informed neural networks for the
     point kinetics equations" (2022)
 """
 
+import os
 import numpy as np
+import matplotlib
+matplotlib.use("Agg")
 import matplotlib.pyplot as plt
-from datetime import datetime
 import argparse
 
-# Nuclear Parameters: Keepin (1957) 6-group for U-235 thermal fission
+# ---------------------------------------------------------------------------
+# Nuclear parameters — Keepin (1957), U-235 thermal fission, 6 groups
+# ---------------------------------------------------------------------------
 BETA = np.array([0.000221, 0.001467, 0.001313, 0.002647, 0.000771, 0.000281])
 LAMBDA = np.array([0.0124, 0.0305, 0.111, 0.301, 1.14, 3.01])
 BETA_TOTAL = np.sum(BETA)
-LAMBDA_GEN = 2e-5  # Prompt neutron generation time (s)
-RHO_STEP = 0.003   # Reactivity step magnitude
+LAMBDA_GEN = 2e-5
+RHO_STEP = 0.003
 
-# Initial conditions (steady state)
 N0 = 1.0
 C0 = BETA / (LAMBDA * LAMBDA_GEN)
 
+GRAPHICS_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "graphics")
+
 
 class XTFC:
+    """Extreme Theory of Functional Connections solver.
+
+    Constrained expression:  y(t) = y0 + t * g(t)
+    where g(t) is an ELM with random fixed hidden weights.
     """
-    Extreme Theory of Functional Connections solver.
-    
-    Uses TFC constrained expression: y(t) = y0 + t * g(t)
-    where g(t) is an ELM (Extreme Learning Machine).
-    """
-    
-    def __init__(self, n_neurons=100, t_max=10.0):
+
+    def __init__(self, n_neurons=100, t_max=10.0, seed=None):
         self.n_neurons = n_neurons
         self.t_max = t_max
         self.n_outputs = 7  # n + 6 precursors
-        
-        # ELM: random hidden layer weights (fixed, never trained)
-        self.W_hidden = np.random.randn(1, n_neurons) * 2.0
-        self.b_hidden = np.random.randn(n_neurons) * 2.0
-        
-        # Output weights (trained via least-squares)
+
+        rng = np.random.default_rng(seed)
+        self.W_hidden = rng.standard_normal((1, n_neurons)) * 2.0
+        self.b_hidden = rng.standard_normal(n_neurons) * 2.0
         self.W_out = None
-        
-        # Training history
         self.residual_norm = None
-    
+
+    # -- hidden layer ---------------------------------------------------------
     def _activation(self, t):
-        """Compute hidden layer activation: tanh(W*t + b)"""
-        t = t.reshape(-1, 1)
-        z = t @ self.W_hidden + self.b_hidden
+        z = t.reshape(-1, 1) @ self.W_hidden + self.b_hidden
         return np.tanh(z)
-    
+
     def _activation_derivative(self, t):
-        """Derivative of tanh activation: 1 - tanh^2"""
-        t = t.reshape(-1, 1)
-        z = t @ self.W_hidden + self.b_hidden
-        tanh_z = np.tanh(z)
-        # d/dt[tanh(W*t + b)] = W * (1 - tanh^2)
-        return self.W_hidden * (1 - tanh_z**2)
-    
+        z = t.reshape(-1, 1) @ self.W_hidden + self.b_hidden
+        return self.W_hidden * (1 - np.tanh(z) ** 2)
+
+    # -- TFC constrained expression ------------------------------------------
     def _tfc_expression(self, t, g):
-        """
-        TFC constrained expression: y(t) = y0 + t * g(t)
-        
-        Guarantees y(0) = y0 exactly.
-        """
-        t = t.reshape(-1, 1)
-        y0 = np.concatenate([[N0], C0])  # (7,)
-        return y0 + t * g
-    
-    def _compute_g(self, t):
-        """Compute free function g(t) = activation(t) @ W_out"""
-        H = self._activation(t)  # (N, n_neurons)
-        return H @ self.W_out    # (N, 7)
-    
-    def _compute_g_derivative(self, t):
-        """Compute dg/dt"""
-        dH = self._activation_derivative(t)  # (N, n_neurons)
-        return dH @ self.W_out  # (N, 7)
-    
-    def train(self, n_collocation=1000):
-        """
-        Train via least-squares.
-        
-        Solve: A @ W_out = b
-        where A encodes the physics residual equations.
-        """
-        # Collocation points (exclude t=0 to avoid division issues)
-        t = np.linspace(0.01, self.t_max, n_collocation)
-        t_col = t.reshape(-1, 1)
-        
-        # Activation and its derivative
-        H = self._activation(t)         # (N, n_neurons)
-        dH = self._activation_derivative(t)  # (N, n_neurons)
-        
-        # For y = y0 + t*g, we have dy/dt = g + t*dg/dt
-        # We need to find W_out such that dy/dt = f(y) (the ODE RHS)
-        
-        # Build the linear system for each output
-        # This is a coupled system, solve jointly
-        
-        N = len(t)
-        n_neurons = self.n_neurons
-        n_out = self.n_outputs
-        
-        # Large matrix for all equations
-        A = np.zeros((N * n_out, n_neurons * n_out))
-        b = np.zeros(N * n_out)
-        
+        """y(t) = y0 + t * g(t)  =>  y(0) = y0 exactly."""
         y0 = np.concatenate([[N0], C0])
-        
+        return y0 + t.reshape(-1, 1) * g
+
+    def _compute_g(self, t):
+        return self._activation(t) @ self.W_out
+
+    def _compute_g_derivative(self, t):
+        return self._activation_derivative(t) @ self.W_out
+
+    # -- training -------------------------------------------------------------
+    def train(self, n_collocation=1000):
+        """Assemble and solve the linearised physics system via lstsq."""
+        t = np.linspace(0.01, self.t_max, n_collocation)
+        H = self._activation(t)
+        dH = self._activation_derivative(t)
+
+        N = len(t)
+        n_neu = self.n_neurons
+        n_out = self.n_outputs
+
+        A = np.zeros((N * n_out, n_neu * n_out))
+        b = np.zeros(N * n_out)
+        y0 = np.concatenate([[N0], C0])
+
         for i, ti in enumerate(t):
-            # Current state from constrained expression
-            # y = y0 + t * H @ W_out (need to iterate or linearize)
-            
-            # For linear solve, use collocation approach:
-            # dy/dt - f(y) = 0
-            # (g + t*dg/dt) - f(y0 + t*g) = 0
-            
-            Hi = H[i:i+1, :]    # (1, n_neurons)
-            dHi = dH[i:i+1, :]  # (1, n_neurons)
-            
+            Hi = H[i]
+            dHi = dH[i]
             rho = RHO_STEP if ti >= 0 else 0.0
-            
-            # For neutron equation: row 0
-            # dy[0]/dt = (rho-beta)/Lambda * y[0] + sum(lambda_j * y[j+1])
-            # y[0] = N0 + t * (H @ W_out[:, 0])
-            # dy[0]/dt = H @ W_out[:, 0] + t * dH @ W_out[:, 0]
-            
-            # LHS coefficient for W_out[:, 0] from dy/dt term
             row = i * n_out
-            
+
             # Neutron equation
-            A[row, 0:n_neurons] = Hi.flatten() + ti * dHi.flatten()  # dy/dt term
-            A[row, 0:n_neurons] -= ((rho - BETA_TOTAL) / LAMBDA_GEN) * ti * Hi.flatten()  # -(rho-beta)/L * t*g term
+            A[row, :n_neu] = (Hi + ti * dHi
+                              - ((rho - BETA_TOTAL) / LAMBDA_GEN) * ti * Hi)
             for j in range(6):
-                A[row, (j+1)*n_neurons:(j+2)*n_neurons] -= LAMBDA[j] * ti * Hi.flatten()
+                A[row, (j+1)*n_neu:(j+2)*n_neu] = -LAMBDA[j] * ti * Hi
             b[row] = ((rho - BETA_TOTAL) / LAMBDA_GEN) * N0 + np.sum(LAMBDA * C0)
-            
+
             # Precursor equations
             for j in range(6):
-                row = i * n_out + j + 1
-                A[row, (j+1)*n_neurons:(j+2)*n_neurons] = Hi.flatten() + ti * dHi.flatten()
-                A[row, (j+1)*n_neurons:(j+2)*n_neurons] += LAMBDA[j] * ti * Hi.flatten()
-                A[row, 0:n_neurons] -= (BETA[j] / LAMBDA_GEN) * ti * Hi.flatten()
-                b[row] = (BETA[j] / LAMBDA_GEN) * N0 - LAMBDA[j] * C0[j]
-        
-        # Solve least-squares
-        W_flat, residuals, rank, s = np.linalg.lstsq(A, b, rcond=None)
-        
-        # Reshape to (n_neurons, n_outputs)
-        self.W_out = W_flat.reshape(n_neurons, n_out, order='F')
-        
-        # Compute actual residual norm
+                r = row + j + 1
+                A[r, (j+1)*n_neu:(j+2)*n_neu] = Hi + ti * dHi + LAMBDA[j] * ti * Hi
+                A[r, :n_neu] = -(BETA[j] / LAMBDA_GEN) * ti * Hi
+                b[r] = (BETA[j] / LAMBDA_GEN) * N0 - LAMBDA[j] * C0[j]
+
+        W_flat, _, rank, _ = np.linalg.lstsq(A, b, rcond=None)
+        self.W_out = W_flat.reshape(n_neu, n_out, order="F")
         self.residual_norm = np.linalg.norm(A @ W_flat - b) / len(b)
-        
-        print(f"X-TFC Training complete")
-        print(f"  Neurons: {self.n_neurons}")
-        print(f"  Collocation points: {n_collocation}")
-        print(f"  Residual norm: {self.residual_norm:.2e}")
-    
+
+        print(f"  X-TFC training complete")
+        print(f"    Neurons         : {self.n_neurons}")
+        print(f"    Collocation pts : {n_collocation}")
+        print(f"    Residual norm   : {self.residual_norm:.2e}")
+
+    # -- prediction -----------------------------------------------------------
     def predict(self, t):
-        """Generate predictions at time points t."""
         if self.W_out is None:
-            raise ValueError("Model not trained. Call train() first.")
-        
+            raise ValueError("Model not trained — call train() first.")
         t = np.asarray(t)
         g = self._compute_g(t)
         y = self._tfc_expression(t, g)
-        
-        return {'n': y[:, 0], 'C': y[:, 1:7]}
-    
+        return {"n": y[:, 0], "C": y[:, 1:7]}
+
     def verify_ic(self):
-        """Verify initial conditions are satisfied exactly."""
         pred = self.predict(np.array([0.0]))
-        ic_error_n = abs(pred['n'][0] - N0)
-        ic_error_C = np.max(np.abs(pred['C'][0] - C0))
-        
-        print(f"IC Verification:")
-        print(f"  n(0) error: {ic_error_n:.2e}")
-        print(f"  C(0) max error: {ic_error_C:.2e}")
-        
-        return ic_error_n, ic_error_C
+        err_n = abs(pred["n"][0] - N0)
+        err_C = np.max(np.abs(pred["C"][0] - C0))
+        print(f"  IC verification — n(0) err: {err_n:.2e}, max C(0) err: {err_C:.2e}")
+        return err_n, err_C
 
 
+# ---------------------------------------------------------------------------
+# Plotting
+# ---------------------------------------------------------------------------
 def plot_solution(model, t_max=10.0, save_path=None):
-    """Plot X-TFC solution."""
     t = np.linspace(0, t_max, 1000)
     pred = model.predict(t)
 
-    fig, ax = plt.subplots(figsize=(10, 5))
-    colors = ['#1f77b4', '#ff7f0e', '#2ca02c', '#d62728', '#9467bd', '#8c564b']
+    fig, axes = plt.subplots(2, 1, figsize=(10, 8))
+
+    axes[0].plot(t, pred["n"], "b-", lw=2)
+    axes[0].set_xlabel("Time (s)", fontsize=12)
+    axes[0].set_ylabel(r"Neutron density $n/n_0$", fontsize=12)
+    axes[0].set_title("X-TFC: Neutron Density", fontsize=14)
+    axes[0].grid(True, alpha=0.3)
+
+    colors = ["#1f77b4", "#ff7f0e", "#2ca02c", "#d62728", "#9467bd", "#8c564b"]
     for i in range(6):
-        ax.plot(t, pred['C'][:, i], color=colors[i], lw=1.5, label=f'Group {i+1}')
-    ax.set_xlabel('Time (s)', fontsize=12)
-    ax.set_ylabel('Precursor Concentration', fontsize=12)
-    ax.set_title('X-TFC: Delayed Neutron Precursors', fontsize=14)
-    ax.legend(loc='upper right', fontsize=10)
-    ax.grid(True, alpha=0.3)
+        axes[1].plot(t, pred["C"][:, i], color=colors[i], lw=1.5, label=f"Group {i+1}")
+    axes[1].set_xlabel("Time (s)", fontsize=12)
+    axes[1].set_ylabel("Precursor Concentration", fontsize=12)
+    axes[1].set_title("X-TFC: Delayed Neutron Precursors", fontsize=14)
+    axes[1].legend(loc="upper right", fontsize=10)
+    axes[1].grid(True, alpha=0.3)
 
     plt.tight_layout()
     if save_path:
-        plt.savefig(save_path, dpi=300, bbox_inches='tight')
-    plt.show()
+        os.makedirs(os.path.dirname(save_path) or ".", exist_ok=True)
+        plt.savefig(save_path, dpi=300, bbox_inches="tight")
+        print(f"  Saved: {save_path}")
+    plt.close(fig)
 
 
 def main():
-    parser = argparse.ArgumentParser(description='X-TFC for Point Kinetics')
-    parser.add_argument('--neurons', type=int, default=100, help='ELM neurons')
-    parser.add_argument('--collocation', type=int, default=1000, help='Collocation points')
-    parser.add_argument('--t-max', type=float, default=10.0, help='Simulation time')
+    parser = argparse.ArgumentParser(description="X-TFC for Point Kinetics")
+    parser.add_argument("--neurons", type=int, default=100)
+    parser.add_argument("--collocation", type=int, default=1000)
+    parser.add_argument("--t-max", type=float, default=10.0)
+    parser.add_argument("--seed", type=int, default=42)
     args = parser.parse_args()
-    
+
     print("X-TFC for Point Kinetics")
-    print("=" * 40)
-    
-    model = XTFC(n_neurons=args.neurons, t_max=args.t_max)
+    print("=" * 45)
+
+    model = XTFC(n_neurons=args.neurons, t_max=args.t_max, seed=args.seed)
     model.train(n_collocation=args.collocation)
     model.verify_ic()
-    
-    timestamp = datetime.now().strftime("%H%M%S_%d%m%y")
-    plot_solution(model, t_max=args.t_max, save_path=f"xtfc_solution_{timestamp}.png")
+
+    os.makedirs(GRAPHICS_DIR, exist_ok=True)
+    plot_solution(model, t_max=args.t_max,
+                  save_path=os.path.join(GRAPHICS_DIR, "xtfc_solution.png"))
 
 
 if __name__ == "__main__":

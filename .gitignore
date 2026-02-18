@@ -14,17 +14,21 @@ env/
 *.swp
 *.swo
 
-# Generated output
-*.png
-*.jpg
-*.gif
-*.mp4
+# Model checkpoints
+*.pt
+*.pth
 
 # Data files
 *.npz
 *.npy
 *.h5
 *.hdf5
+
+# Papers / large binaries
+*.pdf
+
+# Patch files
+*.patch
 
 # Jupyter
 .ipynb_checkpoints/
@@ -41,3 +45,7 @@ Thumbs.db
 build/
 dist/
 *.egg-info/
+
+# Keep the graphics directory (tracked PNGs for the poster)
+!graphics/
+!graphics/*.png
