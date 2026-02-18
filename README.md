@@ -2,6 +2,8 @@
 
 Physics-Informed Neural Networks for solving the point kinetics equations in nuclear reactor dynamics. Compares a standard PINN (soft IC constraints, gradient descent) against X-TFC (hard IC constraints, least-squares) with a SciPy Radau benchmark.
 
+![SIAM Poster](poster.png)
+
 ## Equations
 
 The six-group point kinetics equations model neutron density *n(t)* coupled with six delayed-neutron precursor groups *C_i(t)*:
